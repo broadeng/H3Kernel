@@ -1,0 +1,4 @@
+config FAN_SPEED_DETECT
+    tristate "fan speed detect support"
+    help
+      This enables support for the fan speed detection module
