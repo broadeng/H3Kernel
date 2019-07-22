@@ -76,7 +76,7 @@
 #define REG_PWM_CH_CTRL             (0x0)
 #define REG_PWM_CH0_PERIOD          (0x4)
 #define REG_PWM_CH1_PERIOD          (0x8)
-
+#define REG_PL_CFG1                 (0x4)
 
 #define PWM_DUTY_DEFAULT            (90)    //* percentage of pwm high level.
 #define GPIO_PWM_PERIOD_CNT         (50)
@@ -85,6 +85,7 @@
 
 #define HW_PWM_CLOCK                (24*1000*1000)
 #define HW_PWM_ENTIRE_CYCLE_NUM     (960) //25K = 24M/960
+#define get_bit(x,y)                ((x) >> (y)&1)
 
 struct fsd_dev
 {
@@ -93,6 +94,7 @@ struct fsd_dev
     struct class*      class;           /* class for auto create device node */
     struct resource*   regs;            /* registers resource */
     volatile char*     regsaddr ;       /* registers address */
+    volatile char*     regsaddr_r ;     /* cpus gpio registers address */
     struct resource*   hw_pwm_regs;     /* hw pwm registers resource */
     volatile char*     hw_pwm_regsaddr; /* hardware pwm registers address */
 
@@ -120,36 +122,158 @@ struct fsd_dev
 
     int                fsd_dev_major;
     int                fsd_dev_minor;
+    int                hw_version;
 };
 
 static struct fsd_dev* fsd_devp = NULL;
 
+static int get_gpio_pg4_input_value(struct fsd_dev* p)
+{
+    unsigned int tmp;
+
+    // set PG Config0 register for PG4.
+    tmp = readl(p->regsaddr+REG_PG_CFG0);
+    tmp &= 0xfff0ffff;    // set PG4 as input pin.
+    writel(tmp, (p->regsaddr+REG_PG_CFG0));
+
+    // set PG pull register for PG4 to pull down.
+    tmp = readl(p->regsaddr+REG_PG_PULL);
+    tmp &= 0xfffffcff;
+    tmp |= 0x00000200;
+    writel(tmp, (p->regsaddr+REG_PG_PULL));
+
+    // set PG Config0 register for PG4.
+    tmp = readl(p->regsaddr+REG_PG_DRV0);
+    tmp &= 0xfffffcff;    // set PG4 drive level to level 0.
+    writel(tmp, (p->regsaddr+REG_PG_DRV0));
+
+    udelay(100);
+
+    // read PG4 input value from PG data register.
+    tmp = readl(p->regsaddr+REG_PG_DATA);
+    tmp &= 0x10;
+
+    if(tmp != 0)
+        return 1;
+    else
+        return 0;
+}
+
+static int get_gpio_pg5_input_value(struct fsd_dev* p)
+{
+    unsigned int tmp;
+
+    // set PG Config0 register for PG5.
+    tmp = readl(p->regsaddr+REG_PG_CFG0);
+    tmp &= 0xff0fffff;    // set pg5 as input pin.
+    writel(tmp, (p->regsaddr+REG_PG_CFG0));
+
+    // set PG pull register for PG5 to pull down.
+    tmp = readl(p->regsaddr+REG_PG_PULL);
+    tmp &= 0xfffff3ff;
+    tmp |= 0x00000800;
+    writel(tmp, (p->regsaddr+REG_PG_PULL));
+
+    // set PG Config0 register for PG5.
+    tmp = readl(p->regsaddr+REG_PG_DRV0);
+    tmp &= 0xfffff3ff;    // set pg5 drive level to level 0.
+    writel(tmp, (p->regsaddr+REG_PG_DRV0));
+
+    udelay(100);
+
+    // read pg5 input value from PG data register.
+    tmp = readl(p->regsaddr+REG_PG_DATA);
+    tmp &= 0x20;
+
+    if(tmp != 0)
+        return 1;
+    else
+        return 0;
+}
+
+static int get_gpio_pg13_input_value(struct fsd_dev* p)
+{
+    unsigned int tmp;
+
+    // set PG Config1 register for PG13.
+    tmp = readl(p->regsaddr+REG_PG_CFG1);
+    tmp &= 0xff0fffff;    // set pg13 as input pin.
+    writel(tmp, (p->regsaddr+REG_PG_CFG1));
+
+    // set PG pull register for PG13 to pull down.
+    tmp = readl(p->regsaddr+REG_PG_PULL);
+    tmp &= 0xf3ffffff;
+    tmp |= 0x08000000;
+    writel(tmp, (p->regsaddr+REG_PG_PULL));
+
+    // set PG DRV0 register for PG13.
+    tmp = readl(p->regsaddr+REG_PG_DRV0);
+    tmp &= 0xf3ffffff;    // set pg13 drive level to level 0.
+    writel(tmp, (p->regsaddr+REG_PG_DRV0));
+
+    udelay(100);
+
+    // read pg13 input value from PG data register.
+    tmp = readl(p->regsaddr+REG_PG_DATA);
+    tmp &= 0x2000;
+
+    if(tmp != 0)
+        return 1;
+    else
+        return 0;
+}
 
 static int fsd_ext_irq_enable(struct fsd_dev* devp)
 {
     unsigned int tmp;
+    if(!get_bit(devp->hw_version, 1) && get_bit(devp->hw_version, 2))
+    {
+        // set PA Config2 register for PA17 and PA21 as external interrupt signal.
+        tmp = readl(devp->regsaddr+REG_PA_CFG2);
+        tmp &= 0xff0fff0f;    // clean config bits for PA17 and PA21
+        tmp |= 0x600060;      // config PA17 and PA21 as EXT INT signal;
+        writel(tmp, (devp->regsaddr+REG_PA_CFG2));
 
-    // set PA Config2 register for PA17 and PA18 as external interrupt signal.
-    tmp = readl(devp->regsaddr+REG_PA_CFG2);
-    tmp &= 0xfffff00f;    // clean config bits for PA17 and PA18
-    tmp |= 0x660;         // config PA17 and PA18 as EXT INT signal;
-    writel(tmp, (devp->regsaddr+REG_PA_CFG2));
+        // set PA INT Config2 register for PA17 and PA21 as external interrupt signal.
+        tmp = readl(devp->regsaddr+REG_PA_INT_CFG2);
+        tmp &= 0xff0fff0f;    // clean config bits for PA17 and PA21
+        tmp |= 0x100010;      // set up PA17 and PA21 EXT INT triggered by negtive edge;
+        writel(tmp, (devp->regsaddr+REG_PA_INT_CFG2));
 
-    // set PA INT Config2 register for PA17 and PA18 as external interrupt signal.
-    tmp = readl(devp->regsaddr+REG_PA_INT_CFG2);
-    tmp &= 0xfffff00f;    // clean config bits for PA17 and PA18
-    tmp |= 0x110;         // set up PA17 and PA18 EXT INT triggered by negtive edge;
-    writel(tmp, (devp->regsaddr+REG_PA_INT_CFG2));
+        // set sample resolution for ext intr;
+        tmp = readl(devp->regsaddr+REG_PA_INT_DEB);
+        tmp &= 0x00;
+        writel(tmp, (devp->regsaddr+REG_PA_INT_DEB));
 
-    // set sample resolution for ext intr;
-    tmp = readl(devp->regsaddr+REG_PA_INT_DEB);
-    tmp &= 0x00;
-    writel(tmp, (devp->regsaddr+REG_PA_INT_DEB));
+        // enable ext intr.
+        tmp = readl(devp->regsaddr+REG_PA_INT_CTL);
+        tmp |= 0x00220000;    // enable PA17 and PA21 ext intr.
+        writel(tmp, (devp->regsaddr+REG_PA_INT_CTL));
+    }
+    else
+    {
+        // set PA Config2 register for PA17 and PA18 as external interrupt signal.
+        tmp = readl(devp->regsaddr+REG_PA_CFG2);
+        tmp &= 0xfffff00f;    // clean config bits for PA17 and PA18
+        tmp |= 0x660;      // config PA17 and PA18 as EXT INT signal;
+        writel(tmp, (devp->regsaddr+REG_PA_CFG2));
 
-    // enable ext intr.
-    tmp = readl(devp->regsaddr+REG_PA_INT_CTL);
-    tmp |= 0x00060000;    // enable PA17 and PA18 ext intr.
-    writel(tmp, (devp->regsaddr+REG_PA_INT_CTL));
+        // set PA INT Config2 register for PA17 and PA18 as external interrupt signal.
+        tmp = readl(devp->regsaddr+REG_PA_INT_CFG2);
+        tmp &= 0xffff00f;    // clean config bits for PA17 and PA18
+        tmp |= 0x110;      // set up PA17 and PA18 EXT INT triggered by negtive edge;
+        writel(tmp, (devp->regsaddr+REG_PA_INT_CFG2));
+
+        // set sample resolution for ext intr;
+        tmp = readl(devp->regsaddr+REG_PA_INT_DEB);
+        tmp &= 0x00;
+        writel(tmp, (devp->regsaddr+REG_PA_INT_DEB));
+
+        // enable ext intr.
+        tmp = readl(devp->regsaddr+REG_PA_INT_CTL);
+        tmp |= 0x00060000;    // enable PA17 and PA18 ext intr.
+        writel(tmp, (devp->regsaddr+REG_PA_INT_CTL));
+    }
 
     return 0;
 }
@@ -157,17 +281,32 @@ static int fsd_ext_irq_enable(struct fsd_dev* devp)
 static int fsd_ext_irq_disable(struct fsd_dev* devp)
 {
     unsigned int tmp;
+    if(!get_bit(devp->hw_version, 1) && get_bit(devp->hw_version, 2))
+    {
+        // set PA Config2 register for PA17 and PA21 as external interrupt signal.
+        tmp = readl(devp->regsaddr+REG_PA_CFG2);
+        tmp &= 0xff0fff0f;    // clean config bits for PA17 and PA21
+        tmp |= 0x700070;      // set up PA17 and PA21 as IO disabled;
+        writel(tmp, (devp->regsaddr+REG_PA_CFG2));
 
-    // set PA Config2 register for PA17 and PA18 as external interrupt signal.
-    tmp = readl(devp->regsaddr+REG_PA_CFG2);
-    tmp &= 0xfffff00f;    // clean config bits for PA17 and PA18
-    tmp |= 0x770;         // set up PA17 and PA18 as IO disabled;
-    writel(tmp, (devp->regsaddr+REG_PA_CFG2));
+        // disable ext intr.
+        tmp = readl(devp->regsaddr+REG_PA_INT_CTL);
+        tmp &= 0xffddffff;   // disable PA17 and PA21 ext intr.
+        writel(tmp, (devp->regsaddr+REG_PA_INT_CTL));
+    }
+    else
+    {
+        // set PA Config2 register for PA17 and PA18 as external interrupt signal.
+        tmp = readl(devp->regsaddr+REG_PA_CFG2);
+        tmp &= 0xffff00f;    // clean config bits for PA17 and PA18
+        tmp |= 0x770;      // set up PA17 and PA18 as IO disabled;
+        writel(tmp, (devp->regsaddr+REG_PA_CFG2));
 
-    // disable ext intr.
-    tmp = readl(devp->regsaddr+REG_PA_INT_CTL);
-    tmp &= 0xfff9ffff;    // disable PA17 and PA18 ext intr.
-    writel(tmp, (devp->regsaddr+REG_PA_INT_CTL));
+        // disable ext intr.
+        tmp = readl(devp->regsaddr+REG_PA_INT_CTL);
+        tmp &= 0xfff9ffff;   // disable PA17 and PA18 ext intr.
+        writel(tmp, (devp->regsaddr+REG_PA_INT_CTL));
+    }
 
     return 0;
 }
@@ -229,13 +368,18 @@ err:
 
     if(devp->hw_pwm_regs)
     {
-        release_resource(devp->hw_pwm_regs); 
+        release_resource(devp->hw_pwm_regs);
     }
 
     return -1;
 #else
     devp->regsaddr = (volatile char *)0xf1c20800;
-    devp->hw_pwm_regsaddr = (volatile char *)0xf1c21400;
+    devp->regsaddr_r = (volatile char *)0xf1f02c00;
+    /* use cpu hw pwm */
+    if (get_gpio_pg4_input_value(devp) != 0)
+        devp->hw_pwm_regsaddr = (volatile char *)0xf1c21400;
+    else
+        devp->hw_pwm_regsaddr = (volatile char *)0xf1f03800;
 
     return 0;
 #endif
@@ -303,14 +447,23 @@ void fan_detect_init(struct fsd_dev* p)
     if(p->fan_detect_open == 0)
     {
         p->fan0_virq = gpio_to_irq(GPIOA(17));
-        p->fan1_virq = gpio_to_irq(GPIOA(18));
-
         err = devm_request_irq(p->dev, p->fan0_virq, fsd_irq_handle, IRQF_TRIGGER_FALLING, "PA17_EINT", p);
         if (err)
             pr_err("Request fan irq %d error.\n", p->fan0_virq);
-        err = devm_request_irq(p->dev, p->fan1_virq, fsd_irq_handle, IRQF_TRIGGER_FALLING, "PA18_EINT", p);
-        if (err)
-            pr_err("Request fan irq %d error.\n", p->fan1_virq);
+        if(!get_bit(p->hw_version, 1) && get_bit(p->hw_version, 2))
+        {
+            p->fan1_virq = gpio_to_irq(GPIOA(21));
+            err = devm_request_irq(p->dev, p->fan1_virq, fsd_irq_handle, IRQF_TRIGGER_FALLING, "PA21_EINT", p);
+            if (err)
+                pr_err("Request fan irq %d error.\n", p->fan1_virq);
+        }
+        else
+        {
+            p->fan1_virq = gpio_to_irq(GPIOA(18));
+            err = devm_request_irq(p->dev, p->fan1_virq, fsd_irq_handle, IRQF_TRIGGER_FALLING, "PA18_EINT", p);
+            if (err)
+                pr_err("Request fan irq %d error.\n", p->fan1_virq);
+        }
 
         p->fan_detect_open = 1;
 
@@ -453,74 +606,10 @@ static void pd8_disable_gpio(struct fsd_dev* p)
     writel(tmp, (p->regsaddr+REG_PD_CFG1));
 }
 
-static int get_gpio_pg5_input_value(struct fsd_dev* p)
-{
-    unsigned int tmp;
-    
-    // set PG Config0 register for PG5.
-    tmp = readl(p->regsaddr+REG_PG_CFG0);
-    tmp &= 0xff0fffff;    // set pg5 as input pin.
-    writel(tmp, (p->regsaddr+REG_PG_CFG0));
-
-    // set PG pull register for PG5 to pull down.
-    tmp = readl(p->regsaddr+REG_PG_PULL);
-    tmp &= 0xfffff3ff;
-    tmp |= 0x00000800;
-    writel(tmp, (p->regsaddr+REG_PG_PULL));
-
-    // set PG Config0 register for PG5.
-    tmp = readl(p->regsaddr+REG_PG_DRV0);
-    tmp &= 0xfffff3ff;    // set pg5 drive level to level 0. 
-    writel(tmp, (p->regsaddr+REG_PG_DRV0));
-
-    udelay(100);
-
-    // read pg5 input value from PG data register.
-    tmp = readl(p->regsaddr+REG_PG_DATA);
-    tmp &= 0x20;    // clean config bits for PA17 and PA18
-
-    if(tmp != 0)
-        return 1;
-    else
-        return 0;
-}
-
-static int get_gpio_pg13_input_value(struct fsd_dev* p)
-{
-    unsigned int tmp;
-    
-    // set PG Config1 register for PG13.
-    tmp = readl(p->regsaddr+REG_PG_CFG1);
-    tmp &= 0xff0fffff;    // set pg13 as input pin.
-    writel(tmp, (p->regsaddr+REG_PG_CFG1));
-
-    // set PG pull register for PG13 to pull down.
-    tmp = readl(p->regsaddr+REG_PG_PULL);
-    tmp &= 0xf3ffffff;
-    tmp |= 0x08000000;
-    writel(tmp, (p->regsaddr+REG_PG_PULL));
-
-    // set PG DRV0 register for PG13.
-    tmp = readl(p->regsaddr+REG_PG_DRV0);
-    tmp &= 0xf3ffffff;    // set pg13 drive level to level 0. 
-    writel(tmp, (p->regsaddr+REG_PG_DRV0));
-
-    udelay(100);
-
-    // read pg13 input value from PG data register.
-    tmp = readl(p->regsaddr+REG_PG_DATA);
-    tmp &= 0x2000;    // clean config bits for PA17 and PA18
-
-    if(tmp != 0)
-        return 1;
-    else
-        return 0;
-}
-
 static void set_pa5_as_pwm(struct fsd_dev* p)
 {
     unsigned int tmp;
-    
+
     // set PA5 Config0 register for PA5 to be PWM0.
     tmp = readl(p->regsaddr+REG_PA_CFG0);
     tmp &= 0xff0fffff;
@@ -528,10 +617,21 @@ static void set_pa5_as_pwm(struct fsd_dev* p)
     writel(tmp, (p->regsaddr+REG_PA_CFG0));
 }
 
+static void set_pl10_as_pwm(struct fsd_dev* p)
+{
+    unsigned int tmp;
+
+    // set PL10 Config1 register for PL10 to be SPWM0.
+    tmp = readl(p->regsaddr_r+REG_PL_CFG1);
+    tmp &= 0xfffff0ff;
+    tmp |= 0x00000200;
+    writel(tmp, (p->regsaddr_r+REG_PL_CFG1));
+}
+
 static void set_pa5_as_uart(struct fsd_dev* p)
 {
     unsigned int tmp;
-    
+
     // set PA5 Config0 register for PA5 to be PWM0.
     tmp = readl(p->regsaddr+REG_PA_CFG0);
     tmp &= 0xff0fffff;
@@ -570,7 +670,7 @@ static void set_hw_pwm_duty(struct fsd_dev* p, int pwm_duty)
 static void enable_hw_pwm(struct fsd_dev* p)
 {
     unsigned int tmp;
-    
+
     // set PWM Channel Control register to enable PWM0.
     tmp = readl(p->hw_pwm_regsaddr+REG_PWM_CH_CTRL);
     tmp &= 0xffff8000;
@@ -583,34 +683,49 @@ static void enable_hw_pwm(struct fsd_dev* p)
 static void disable_hw_pwm(struct fsd_dev* p)
 {
     unsigned int tmp;
-    
+
     // set PWM Channel Control register to disable PWM0.
     tmp = readl(p->hw_pwm_regsaddr+REG_PWM_CH_CTRL);
     tmp &= 0xffff8000;
     writel(tmp, (p->hw_pwm_regsaddr+REG_PWM_CH_CTRL));
 }
 
+static void get_fan_hw_version(struct fsd_dev* p)
+{
+    bool pg4_in;
+    bool pg5_in;
+    bool pg13_in;
+
+    pg4_in = get_gpio_pg4_input_value(p);
+    pg5_in = get_gpio_pg5_input_value(p);
+    pg13_in = get_gpio_pg13_input_value(p);
+    p->hw_version = ((pg5_in << 2) | (pg4_in << 1) | pg13_in) & 0xff;
+
+    return;
+}
+
 void fan_pwm_init(struct fsd_dev* p)
 {
     ktime_t ktime;
     int i;
-    int pg5_input;
-    int pg13_input;
 
-    //* set PG5 and PG13 as input to detect hardware setting.
-    pg5_input  = get_gpio_pg5_input_value(p);
-    pg13_input = get_gpio_pg13_input_value(p);
+    get_fan_hw_version(p);
+    printk("Hw versoin: %d PG: %d %d %d\n", p->hw_version, get_bit(p->hw_version, 1),
+        get_bit(p->hw_version, 2), get_bit(p->hw_version, 0));
 
-    if(pg5_input != 0)
+    if (get_bit(p->hw_version, 2) != 0)
         p->use_hw_pwm = 1;
     else
         p->use_hw_pwm = 0;
 
     printk("Use %s PWM for fan\n", p->use_hw_pwm ? "hardware" : "software");
-
     if(p->use_hw_pwm)
     {
-        set_pa5_as_pwm(p);
+        if (get_bit(p->hw_version, 1) != 0)
+            set_pa5_as_pwm(p);
+        else
+            set_pl10_as_pwm(p);
+
         p->hw_pwm_duty = 100;
         p->hw_pwm_cycles = HW_PWM_ENTIRE_CYCLE_NUM;
         enable_hw_pwm(p);
@@ -676,7 +791,7 @@ ssize_t fan0_show(struct class* class, struct class_attribute* attr, char* buf)
 {
     unsigned int speed;
     speed = fsd_devp->fan0_speed;
-    
+
     sprintf(buf, "%u\n", speed);
     return strlen(buf);
 }
