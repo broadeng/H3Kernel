@@ -63,8 +63,8 @@ fel_key_min            =02
 logical_start   = 40960
 sprite_work_delay	= 500
 sprite_err_delay	= 200
-sprite_gpio0	= port:PD06<1><default><default><default>
-sprite_finish_gpio0	= port:PD07<1><default><default><0>
+sprite_gpio0	= port:PG09<1><default><default><default>
+sprite_finish_gpio0	= port:PG12<1><default><default><0>
 next_work	= 3
 
 ;---------------------------------------------------------------------------------
@@ -93,8 +93,8 @@ led_state = 0
 ;-------------------------------------------------------------------------------
 [boot_init_gpio]
 boot_init_gpio_used	=	1
-gpio0 =  port:PD06<1><default><default><1>
-gpio1	=  port:PD07<1><default><default><1>
+gpio0 =  port:PG09<1><default><default><1>
+gpio1	=  port:PG12<1><default><default><1>
 
 ;----------------------------------------------------------------------------------
 ;	used: 模块使能端     1：开启模块          0：关闭模块
@@ -287,7 +287,7 @@ twi_scl         = port:PA11<2><default><default><default>
 twi_sda         = port:PA12<2><default><default><default>
 
 [twi1]
-twi_used        = 0
+twi_used        = 1
 twi_scl         = port:PA18<3><default><default><default>
 twi_sda         = port:PA19<3><default><default><default>
 
@@ -331,8 +331,8 @@ uart3_port       = 3
 uart3_type       = 2
 uart3_tx         = port:PA13<3><1><default><default>
 uart3_rx         = port:PA14<3><1><default><default>
-uart3_rts        = port:PA15<3><1><default><default>
-uart3_cts        = port:PA16<3><1><default><default>
+;uart3_rts        = port:PA15<3><1><default><default>
+;uart3_cts        = port:PA16<3><1><default><default>
 
 ;----------------------------------------------------------------------------------
 ;SPI controller configuration
