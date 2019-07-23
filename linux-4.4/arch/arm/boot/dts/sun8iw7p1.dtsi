@@ -618,134 +618,6 @@
 			pinctrl-0 = <&twi0_pins_a>;
 			pinctrl-1 = <&twi0_pins_b>;
 			status = "okay";
-	
-			eeprom@50 {
-				compatible = "atmel,24c01";
-				reg = <0x50>;
-				pagesize = <8>;
-			};
-			eeprom@51 {
-				compatible = "atmel,24c01";
-				reg = <0x51>;
-				pagesize = <8>;
-			};
-			eeprom@52 {
-				compatible = "atmel,24c01";
-				reg = <0x52>;
-				pagesize = <8>;
-			};
-
-			lm75@48 {
-				compatible = "lm75";
-				reg = <0x48>;
-			};
-			lm75@49 {
-				compatible = "lm75";
-				reg = <0x49>;
-			};
-			lm75@4a {
-				compatible = "lm75";
-				reg = <0x4a>;
-			};
-
-			tmp421@4c {
-				compatible = "ti,tmp421";
-				reg = <0x4c>;
-			};
-			tmp421@4d {
-				compatible = "ti,tmp421";
-				reg = <0x4d>;
-			};
-			tmp421@4e {
-				compatible = "ti,tmp421";
-				reg = <0x4e>;
-			};
-
-			i2c-switch@70 {
-				compatible = "nxp,pca9542";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0x70>;
-				i2c-mux-idle-disconnect;
-				
-				i2c@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-					tmp423@4c {
-						compatible = "ti,tmp423";
-						reg = <0x4c>;
-					};
-				};
-
-				i2c@1 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <1>;
-					tmp423@4c {
-						compatible = "ti,tmp423";
-						reg = <0x4c>;
-					};
-				};
-			};
-
-			i2c-switch@71 {
-				compatible = "nxp,pca9542";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0x71>;
-				i2c-mux-idle-disconnect;
-				
-				i2c@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-					tmp423@4c {
-						compatible = "ti,tmp423";
-						reg = <0x4c>;
-					};
-				};
-
-				i2c@1 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <1>;
-					
-					tmp423@4c {
-						compatible = "ti,tmp423";
-						reg = <0x4c>;
-					};
-				};
-			};
-
-			i2c-switch@72 {
-				compatible = "nxp,pca9542";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0x72>;
-				i2c-mux-idle-disconnect;
-				
-				i2c@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-					tmp423@4c {
-						compatible = "ti,tmp423";
-						reg = <0x4c>;
-					};
-				};
-
-				i2c@1 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <1>;
-					
-					tmp423@4c {
-						compatible = "ti,tmp423";
-						reg = <0x4c>;
-					};
-				};
-			};
 		};
 
 		twi1: twi@0x01c2b000{
@@ -760,7 +632,7 @@
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&twi1_pins_a>;
 			pinctrl-1 = <&twi1_pins_b>;
-			status = "disabled";
+			status = "okay";
 		};
 
 		twi2: twi@0x01c2b400{
@@ -771,21 +643,11 @@
 			reg = <0x0 0x01c2b400 0x0 0x400>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi2>;
-			clock-frequency = <100000>;
+			clock-frequency = <200000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&twi2_pins_a>;
 			pinctrl-1 = <&twi2_pins_b>;
 			status = "okay";
-
-			eeprom@28 {
-				compatible = "at,24c08";
-				reg = <0x28>;
-			};
-
-			p6@2c {
-				compatible = "gp,p6-power";
-				reg = <0x2c>;
-			};
 		};
 
 		spi0: spi@01c68000 {
