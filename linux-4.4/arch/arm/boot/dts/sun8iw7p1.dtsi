@@ -491,7 +491,7 @@
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&s_uart0_pins_a>;
-			status = "okay";
+			status = "disable";
 		};
 
 		s_twi0: s_twi@0x01f02400 {
