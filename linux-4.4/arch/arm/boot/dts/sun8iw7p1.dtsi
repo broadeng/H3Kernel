@@ -183,12 +183,14 @@
 				axi-bus-divide-ratio = <3>;
 				clock-latency-ns = <2000000>;
 			};
+/*
 			opp06 {
 				opp-hz = /bits/ 64 <1200000000>;
 				opp-microvolt = <1300000>;
 				axi-bus-divide-ratio = <3>;
 				clock-latency-ns = <2000000>;
 			};
+*/
 		};
 	};
 
