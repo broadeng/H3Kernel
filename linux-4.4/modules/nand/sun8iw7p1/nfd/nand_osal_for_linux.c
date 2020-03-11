@@ -41,9 +41,9 @@
 #include <linux/dma/sunxi-dma.h>
 
 #define  NAND_DRV_VERSION_0		0x03
-#define  NAND_DRV_VERSION_1		0x6102
-#define  NAND_DRV_DATE			0x20180126
-#define  NAND_DRV_TIME			0x16801444
+#define  NAND_DRV_VERSION_1		0x6112
+#define  NAND_DRV_DATE			0x20190619
+#define  NAND_DRV_TIME			0x16801909
 /*
  * 1680--aw1680--H3
  * 14--uboot2014
