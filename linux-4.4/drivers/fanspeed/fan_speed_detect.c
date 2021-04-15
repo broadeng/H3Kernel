@@ -407,7 +407,7 @@ static irqreturn_t fsd_irq_handle(int irq, void *dev_id)
     if(irq == p->fan2_virq)
         p->fan2_intr_cnt++;
     if(irq == p->fan3_virq)
-        p->fan2_intr_cnt++;
+        p->fan3_intr_cnt++;
 
     return IRQ_HANDLED;
 }
